@@ -6,13 +6,13 @@ import ProjectHeader from "./ProjectHeader.jsx";
 import ScoreRing from "./ScoreRing.jsx";
 import MetricsGrid from "./MetricsGrid.jsx";
 import ScoreBreakdown from "./ScoreBreakdown.jsx";
-import StageBreakdown from "./StageBreakdown.jsx";
 import HistoryChart from "./HistoryChart.jsx";
 import IssueCard from "./IssueCard.jsx";
 import TeamLearnings from "./TeamLearnings.jsx";
-import ReleasePicker from "./ReleasePicker.jsx";
 import JiraIssuesTable from "./JiraIssuesTable.jsx";
 import BugClassification from "./BugClassification.jsx";
+import SopCompliance from "./SopCompliance.jsx";
+import LeakageAnalysis from "./LeakageAnalysis.jsx";
 
 export default function ProjectView() {
   const { id } = useParams();
@@ -95,8 +95,6 @@ export default function ProjectView() {
 
   return (
     <div className="space-y-6">
-      <ReleasePicker history={history} currentId={release.id} />
-
       <ProjectHeader
         release={release}
         onSync={handleSync}
@@ -124,9 +122,13 @@ export default function ProjectView() {
 
       <MetricsGrid release={release} />
 
+      {release.sopCompliance && (
+        <SopCompliance sopCompliance={release.sopCompliance} />
+      )}
+
       <section className="grid lg:grid-cols-2 gap-4">
         <ScoreBreakdown scorecard={release.scorecard} />
-        <StageBreakdown stages={release.stages} />
+        <LeakageAnalysis stages={release.stages} leakageMetrics={release.leakageMetrics} />
       </section>
 
       {history.length > 1 && <HistoryChart history={history} />}

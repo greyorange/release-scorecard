@@ -1,0 +1,2 @@
+Project Name,Customer Name,Release Version,Owner,Release Date,Test Pass Rate %,Automation Coverage %,MTTR (hrs),SQA Bugs,SIT Bugs,Production Bugs,Critical Bugs Open,Bug Class - Total,Bug Class - New Requirements,Bug Class - Duplicates,Bug Class - Leaks from Testing,Bug Class - TBD,JIRA IDs,CAPA Action IDs
+Test Project,,v1.0.0,,2026-07-06,95,85,,,,,,,,,,,,

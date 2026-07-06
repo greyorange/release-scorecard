@@ -5,9 +5,13 @@
 //
 //   {
 //     project: "...", version: "...", customer: "...", owner: "...",
+//     releaseType: "major|minor|hotfix|patch|weekly",
+//     plannedReleaseDate: "YYYY-MM-DD",
 //     releaseDate: "YYYY-MM-DD",
 //     metrics:  { testPassRate, automationCoverage, mttrHours },
 //     bugs:     { sqa, sit, production, criticalOpen },
+//     sopCompliance: { preReleaseSopCompleted, releaseNotesReady, signoffObtained, rollbackPlanReady },
+//     requirements: { planned: [...], delivered: [...], deferred: [...] },
 //     jiraIds:  ["GM-1001", ...],
 //     issues:   [{ jiraId, title, severity, rca, capa, owner, dueDate }],
 //     learnings:[{ team, note, owner, dueDate }],
@@ -22,9 +26,12 @@ function csvEscape(v) {
 
 function buildHeaders(maxIssues, maxLearnings) {
   const base = [
-    "Project Name", "Customer Name", "Release Version", "Owner", "Release Date",
+    "Project Name", "Customer Name", "Release Version", "Release Type", "Planned Release Date",
+    "Owner", "Release Date",
     "Test Pass Rate %", "Automation Coverage %", "MTTR (hrs)",
     "SQA Bugs", "SIT Bugs", "Production Bugs", "Critical Bugs Open",
+    "Pre-release SOP Completed", "Release Notes Ready", "Signoff Obtained", "Rollback Plan Ready",
+    "Planned Features", "Delivered Features", "Deferred Features",
     "Bug Class - Total", "Bug Class - New Requirements", "Bug Class - Duplicates",
     "Bug Class - Leaks from Testing", "Bug Class - TBD",
     "JIRA IDs", "CAPA Action IDs",
@@ -47,11 +54,18 @@ function buildHeaders(maxIssues, maxLearnings) {
 function releaseToRow(rel, maxIssues, maxLearnings) {
   const m = rel.metrics || {};
   const b = rel.bugs || {};
+  const sop = rel.sopCompliance || {};
+  const req = rel.requirements || {};
   const bc = rel.bugClassification || {};
   const row = [
-    rel.project, rel.customer, rel.version, rel.owner, rel.releaseDate,
+    rel.project, rel.customer, rel.version, rel.releaseType, rel.plannedReleaseDate,
+    rel.owner, rel.releaseDate,
     m.testPassRate, m.automationCoverage, m.mttrHours,
     b.sqa, b.sit, b.production, b.criticalOpen,
+    sop.preReleaseSopCompleted, sop.releaseNotesReady, sop.signoffObtained, sop.rollbackPlanReady,
+    Array.isArray(req.planned) ? req.planned.join(", ") : "",
+    Array.isArray(req.delivered) ? req.delivered.join(", ") : "",
+    Array.isArray(req.deferred) ? req.deferred.join(", ") : "",
     bc.total, bc.newRequirements, bc.duplicates, bc.leaksFromTesting, bc.tbd,
     Array.isArray(rel.jiraIds) ? rel.jiraIds.join(", ") : "",
     Array.isArray(rel.storyIds) ? rel.storyIds.join(", ") : "",

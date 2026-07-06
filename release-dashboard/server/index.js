@@ -23,6 +23,19 @@ import { fetchBugsFor, fetchIssuesByIds, syncRelease, startPolling } from "./jir
 import { renderReleasePdf } from "./pdf.js";
 import { parseCsvDir } from "./csvParser.js";
 import { jsonToCsv } from "./jsonToCsvConverter.js";
+import {
+  getStatus,
+  getFeatureStatus,
+  toggleFeatureFlag,
+  listBackups,
+  createBackup,
+  restoreBackup,
+  getVersionStatus,
+  setScoreVersion,
+  getMetrics,
+  getVersionComparison,
+  getHistory,
+} from "./rollbackControl.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -272,6 +285,100 @@ app.get("/api/export/:id/pdf", async (req, res) => {
     console.error(`[pdf] failed for ${release.id}: ${err.message}`);
     res.status(500).json({ error: `PDF export failed: ${err.message}` });
   }
+});
+
+// ---------- admin/rollback control -------------------------------------- //
+
+// Get overall rollback status: current version, features, history
+app.get("/api/admin/rollback/status", (_req, res) => {
+  res.json(getStatus());
+});
+
+// Get all feature flags (Phase 1 + Phase 2)
+app.get("/api/admin/rollback/features", (_req, res) => {
+  res.json(getFeatureStatus());
+});
+
+// Toggle a feature flag on/off
+app.post("/api/admin/rollback/feature-flags", (req, res) => {
+  const { feature, enabled } = req.body || {};
+  if (!feature || typeof enabled !== "boolean") {
+    return res.status(400).json({ error: "feature and enabled (boolean) required" });
+  }
+  try {
+    const result = toggleFeatureFlag(feature, enabled, req.user?.email || "unknown");
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// List all backups
+app.get("/api/admin/rollback/backups", (req, res) => {
+  try {
+    res.json(listBackups());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create a new backup
+app.post("/api/admin/rollback/backup", (req, res) => {
+  const { reason } = req.body || {};
+  try {
+    const backup = createBackup(reason, req.user?.email || "system");
+    res.status(201).json(backup);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Restore from a backup
+app.post("/api/admin/rollback/restore", (req, res) => {
+  const { backupId } = req.body || {};
+  if (!backupId) {
+    return res.status(400).json({ error: "backupId required" });
+  }
+  try {
+    const result = restoreBackup(backupId, req.user?.email || "system");
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get version status (current version + available versions)
+app.get("/api/admin/rollback/version", (_req, res) => {
+  res.json(getVersionStatus());
+});
+
+// Change scoring version (v1, v2, v3)
+app.post("/api/admin/rollback/version", (req, res) => {
+  const { version } = req.body || {};
+  if (!version) {
+    return res.status(400).json({ error: "version required" });
+  }
+  try {
+    const result = setScoreVersion(version, req.user?.email || "system");
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get system metrics + health checks
+app.get("/api/admin/rollback/metrics", (_req, res) => {
+  res.json(getMetrics());
+});
+
+// Get version comparison (v1 vs v2 scores)
+app.get("/api/admin/rollback/version-comparison", (_req, res) => {
+  res.json(getVersionComparison());
+});
+
+// Get rollback history log
+app.get("/api/admin/rollback/history", (_req, res) => {
+  res.json(getHistory());
 });
 
 // ---------- static frontend (production) -------------------------------- //

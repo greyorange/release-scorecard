@@ -27,8 +27,21 @@ export default function NewReleaseForm() {
   const [project, setProject] = useState("");
   const [customer, setCustomer] = useState("");
   const [version, setVersion] = useState("");
+  const [releaseType, setReleaseType] = useState("minor");
   const [owner, setOwner] = useState("");
+  const [plannedReleaseDate, setPlannedReleaseDate] = useState("");
   const [releaseDate, setReleaseDate] = useState("");
+
+  // SOP Compliance (Phase 1)
+  const [sopCompleted, setSopCompleted] = useState(false);
+  const [releaseNotesReady, setReleaseNotesReady] = useState(false);
+  const [signoffObtained, setSignoffObtained] = useState(false);
+  const [rollbackPlanReady, setRollbackPlanReady] = useState(false);
+
+  // Feature tracking (Phase 1)
+  const [plannedFeaturesStr, setPlannedFeaturesStr] = useState("");
+  const [deliveredFeaturesStr, setDeliveredFeaturesStr] = useState("");
+  const [deferredFeaturesStr, setDeferredFeaturesStr] = useState("");
 
   const [testPassRate, setTestPassRate] = useState("");
   const [automationCoverage, setAutomationCoverage] = useState("");
@@ -66,8 +79,17 @@ export default function NewReleaseForm() {
         setProject(r.projectName || "");
         setCustomer(r.customerName || "");
         setVersion(r.releaseVersion || "");
+        setReleaseType(r.releaseType || "minor");
         setOwner(r.owner || "");
+        setPlannedReleaseDate(r.sopCompliance?.plannedReleaseDate ? String(r.sopCompliance.plannedReleaseDate).slice(0, 10) : "");
         setReleaseDate(r.releaseDate ? String(r.releaseDate).slice(0, 10) : "");
+        setSopCompleted(r.sopCompliance?.preReleaseSopCompleted || false);
+        setReleaseNotesReady(r.sopCompliance?.releaseNotesReady || false);
+        setSignoffObtained(r.sopCompliance?.signoffObtained || false);
+        setRollbackPlanReady(r.sopCompliance?.rollbackPlanReady || false);
+        setPlannedFeaturesStr((r.requirements?.planned || []).join(", "));
+        setDeliveredFeaturesStr((r.requirements?.delivered || []).join(", "));
+        setDeferredFeaturesStr((r.requirements?.deferred || []).join(", "));
         setTestPassRate(r.testPassRate ?? "");
         setAutomationCoverage(r.automationCoverage ?? "");
         setMttrHours(r.mttr ?? "");
@@ -131,7 +153,31 @@ export default function NewReleaseForm() {
     const payload = { project: project.trim(), version: version.trim() };
     if (customer.trim()) payload.customer = customer.trim();
     if (owner.trim()) payload.owner = owner.trim();
+    if (releaseType) payload.releaseType = releaseType;
+    if (plannedReleaseDate) payload.plannedReleaseDate = plannedReleaseDate;
     if (releaseDate) payload.releaseDate = releaseDate;
+
+    const sopCompliance = {};
+    if (sopCompleted || releaseNotesReady || signoffObtained || rollbackPlanReady) {
+      sopCompliance.preReleaseSopCompleted = sopCompleted;
+      sopCompliance.releaseNotesReady = releaseNotesReady;
+      sopCompliance.signoffObtained = signoffObtained;
+      sopCompliance.rollbackPlanReady = rollbackPlanReady;
+      if (plannedReleaseDate) sopCompliance.plannedReleaseDate = plannedReleaseDate;
+      if (releaseDate) sopCompliance.actualReleaseDate = releaseDate;
+      payload.sopCompliance = sopCompliance;
+    }
+
+    const requirements = {};
+    const planned = plannedFeaturesStr.split(",").map(s => s.trim()).filter(Boolean);
+    const delivered = deliveredFeaturesStr.split(",").map(s => s.trim()).filter(Boolean);
+    const deferred = deferredFeaturesStr.split(",").map(s => s.trim()).filter(Boolean);
+    if (planned.length || delivered.length || deferred.length) {
+      if (planned.length) requirements.planned = planned;
+      if (delivered.length) requirements.delivered = delivered;
+      if (deferred.length) requirements.deferred = deferred;
+      payload.requirements = requirements;
+    }
 
     const metrics = {};
     if (numOrUndef(testPassRate) !== undefined) metrics.testPassRate = numOrUndef(testPassRate);
@@ -245,7 +291,67 @@ export default function NewReleaseForm() {
           <Field label="Release Version *" value={version} onChange={setVersion} placeholder="v1.0.0" />
           <Field label="Customer Name" value={customer} onChange={setCustomer} placeholder="Acme Corp" />
           <Field label="Owner" value={owner} onChange={setOwner} placeholder="Ashish R" />
-          <Field label="Release Date" type="date" value={releaseDate} onChange={setReleaseDate} />
+          <SelectField label="Release Type" value={releaseType} onChange={setReleaseType} options={["major", "minor", "hotfix", "patch", "weekly"]} />
+          <Field label="Planned Release Date" type="date" value={plannedReleaseDate} onChange={setPlannedReleaseDate} />
+          <Field label="Actual Release Date" type="date" value={releaseDate} onChange={setReleaseDate} />
+        </div>
+      </section>
+
+      {/* ---------------- SOP Compliance (Phase 1) ---------------- */}
+      <section className="card space-y-3">
+        <h3 className="font-semibold text-slate-800">SOP & Timeline Compliance</h3>
+        <p className="text-xs text-slate-500 -mt-1">
+          Track release process completion and timeline adherence.
+        </p>
+        <div className="space-y-2">
+          <CheckboxField
+            label="Pre-release SOP Completed"
+            checked={sopCompleted}
+            onChange={setSopCompleted}
+          />
+          <CheckboxField
+            label="Release Notes Ready"
+            checked={releaseNotesReady}
+            onChange={setReleaseNotesReady}
+          />
+          <CheckboxField
+            label="Signoff Obtained"
+            checked={signoffObtained}
+            onChange={setSignoffObtained}
+          />
+          <CheckboxField
+            label="Rollback Plan Ready"
+            checked={rollbackPlanReady}
+            onChange={setRollbackPlanReady}
+          />
+        </div>
+      </section>
+
+      {/* ---------------- Feature Delivery (Phase 1) ---------------- */}
+      <section className="card space-y-3">
+        <h3 className="font-semibold text-slate-800">Feature Delivery</h3>
+        <p className="text-xs text-slate-500 -mt-1">
+          Track planned vs delivered vs deferred features. Use comma-separated values.
+        </p>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <Field
+            label="Planned Features"
+            value={plannedFeaturesStr}
+            onChange={setPlannedFeaturesStr}
+            placeholder="Feature A, Feature B, Feature C"
+          />
+          <Field
+            label="Delivered Features"
+            value={deliveredFeaturesStr}
+            onChange={setDeliveredFeaturesStr}
+            placeholder="Feature A, Feature B"
+          />
+          <Field
+            label="Deferred Features"
+            value={deferredFeaturesStr}
+            onChange={setDeferredFeaturesStr}
+            placeholder="Feature C"
+          />
         </div>
       </section>
 
@@ -452,6 +558,20 @@ function SelectField({ label, value, onChange, options }) {
           </option>
         ))}
       </select>
+    </label>
+  );
+}
+
+function CheckboxField({ label, checked, onChange }) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-2 focus:ring-slate-300"
+      />
+      <span className="text-sm text-slate-700">{label}</span>
     </label>
   );
 }

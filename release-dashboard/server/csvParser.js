@@ -26,6 +26,14 @@ function pick(row, ...keys) {
   return null;
 }
 
+function parseStringList(value) {
+  if (!value || typeof value !== "string") return [];
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
 function makeId(projectName, releaseVersion, index) {
   const slug = (s) =>
     String(s || "")
@@ -156,10 +164,31 @@ export function rowToRelease(row, index = 0) {
     }
   }
 
+  // Phase 1: SOP Compliance tracking
+  const sopCompliance = {
+    plannedReleaseDate: row["Planned Release Date"] || null,
+    actualReleaseDate: row["Release Date"] || row["Released Date"] || null,
+    preReleaseSopCompleted: row["Pre-release SOP Completed"] === "true" || row["Pre-release SOP Completed"] === "TRUE" || row["Pre-release SOP Completed"] === "1",
+    releaseNotesReady: row["Release Notes Ready"] === "true" || row["Release Notes Ready"] === "TRUE" || row["Release Notes Ready"] === "1",
+    signoffObtained: row["Signoff Obtained"] === "true" || row["Signoff Obtained"] === "TRUE" || row["Signoff Obtained"] === "1",
+    rollbackPlanReady: row["Rollback Plan Ready"] === "true" || row["Rollback Plan Ready"] === "TRUE" || row["Rollback Plan Ready"] === "1",
+  };
+
+  // Phase 1: Requirements/Feature delivery tracking
+  const requirements = {
+    planned: parseStringList(row["Planned Features"]),
+    delivered: parseStringList(row["Delivered Features"]),
+    deferred: parseStringList(row["Deferred Features"]),
+  };
+
+  // Phase 1: Release type categorization
+  const releaseType = (row["Release Type"] || "minor").toLowerCase();
+
   return {
     id: makeId(projectName, releaseVersion, index),
     projectName,
     releaseVersion,
+    releaseType: ["major", "minor", "hotfix", "patch", "weekly"].includes(releaseType) ? releaseType : "minor",
     currentBuildVersion: row["Current Build Version"] || null,
     customerName: row["Customer Name"] || null,
     owner: row["Owner"] || null,
@@ -180,6 +209,12 @@ export function rowToRelease(row, index = 0) {
       sit: stageBlock(row, "SIT/UAT/HAT"),
       production: stageBlock(row, "Production"),
     },
+
+    // Phase 1: SOP & timeline compliance
+    sopCompliance,
+
+    // Phase 1: Requirements tracking
+    requirements,
 
     // Legacy fields exposed so the UI can render the older schema too.
     legacy: {

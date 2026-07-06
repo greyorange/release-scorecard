@@ -6,6 +6,7 @@ import ProjectTabs from "./components/ProjectTabs.jsx";
 import ProjectView from "./components/ProjectView.jsx";
 import AllReleases from "./components/AllReleases.jsx";
 import NewReleaseForm from "./components/NewReleaseForm.jsx";
+import RollbackControl from "./components/RollbackControl.jsx";
 
 export default function App() {
   const [projects, setProjects] = useState([]);
@@ -37,6 +38,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             <NavLink to="/" label="All Releases" exact />
             <NavLink to="/new" label="+ New Release" />
+            <NavLink to="/admin/rollback" label="🔧 Rollback" />
             {error && (
               <span className="pill-conditional" title={error}>
                 offline mode
@@ -57,6 +59,7 @@ export default function App() {
               <Route path="/new" element={<NewReleaseForm />} />
               <Route path="/projects/:id/edit" element={<NewReleaseForm />} />
               <Route path="/projects/:id" element={<ProjectView />} />
+              <Route path="/admin/rollback" element={<RollbackControl />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </>
