@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { fetchJiraIssuesByIds } from "../api.js";
 
+// Releases routinely attach 40+ issues, which buries everything below the
+// table. Show the first chunk and let the user opt into the rest.
+const INITIAL_VISIBLE = 10;
+
 // JIRA-dashboard-style table of issues attached to a release.
 //
 // Behavior:
@@ -10,6 +14,9 @@ import { fetchJiraIssuesByIds } from "../api.js";
 //     the IDs.
 //   - "Missing" issues (id not returned by JIRA — usually permission)
 //     render with a hint instead of disappearing.
+//   - Lists longer than INITIAL_VISIBLE collapse behind a "show all"
+//     toggle. PDF export renders with ?print=true, which forces the full
+//     list so exported scorecards aren't silently truncated.
 export default function JiraIssuesTable({
   ids = [],
   jiraBaseUrl,
@@ -17,6 +24,7 @@ export default function JiraIssuesTable({
   title = "Attached JIRA Issues",
 }) {
   const [state, setState] = useState({ loading: true, issues: null, error: null, enabled: null });
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (!ids?.length) {
@@ -55,6 +63,17 @@ export default function JiraIssuesTable({
 
   if (!ids?.length) return null;
 
+  // Puppeteer renders /projects/:id?print=true for PDF export — never
+  // collapse there, a truncated report is worse than a long one.
+  const isPrint =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("print") === "true";
+
+  const showAll = expanded || isPrint;
+  const rows = state.enabled === false ? ids : state.issues || [];
+  const visibleRows = showAll ? rows : rows.slice(0, INITIAL_VISIBLE);
+  const hiddenCount = rows.length - visibleRows.length;
+
   return (
     <div className="card" data-jira-loaded={state.loading ? "false" : "true"}>
       <div className="flex items-baseline justify-between mb-3">
@@ -80,13 +99,23 @@ export default function JiraIssuesTable({
       )}
 
       {!state.loading && state.enabled === false ? (
-        <FallbackBadges ids={ids} jiraBaseUrl={jiraBaseUrl} />
+        <FallbackBadges ids={visibleRows} jiraBaseUrl={jiraBaseUrl} />
       ) : (
         !state.loading && (
           <div className="overflow-x-auto">
-            <IssuesTable issues={state.issues || []} jiraBaseUrl={jiraBaseUrl} />
+            <IssuesTable issues={visibleRows} jiraBaseUrl={jiraBaseUrl} />
           </div>
         )
+      )}
+
+      {!state.loading && !isPrint && rows.length > INITIAL_VISIBLE && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-3 w-full py-2 rounded-md border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+        >
+          {expanded ? "Show fewer" : `Show all ${rows.length} issues (${hiddenCount} more)`}
+        </button>
       )}
     </div>
   );

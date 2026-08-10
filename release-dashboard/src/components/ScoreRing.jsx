@@ -16,7 +16,7 @@ export default function ScoreRing({ score, recommendation }) {
   return (
     <div className="flex flex-col items-center">
       <svg width="140" height="140" viewBox="0 0 140 140">
-        <circle cx="70" cy="70" r={radius} stroke="#e2e8f0" strokeWidth="12" fill="none" />
+        <circle cx="70" cy="70" r={radius} className="ring-track" strokeWidth="12" fill="none" />
         <circle
           cx="70"
           cy="70"

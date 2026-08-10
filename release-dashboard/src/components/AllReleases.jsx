@@ -4,10 +4,13 @@ import { fetchAllReleases } from "../api.js";
 import UploadCsv from "./UploadCsv.jsx";
 
 function healthColor(rec) {
-  if (rec === "go") return { bg: "bg-emerald-500", text: "text-white", label: "GO" };
-  if (rec === "conditional") return { bg: "bg-amber-400", text: "text-white", label: "CONDITIONAL" };
-  if (rec === "nogo") return { bg: "bg-red-500", text: "text-white", label: "NO-GO" };
-  return { bg: "bg-slate-300", text: "text-slate-600", label: "UNKNOWN" };
+  if (rec === "go")
+    return { bg: "bg-emerald-500", text: "text-white", label: "GO", accent: "#10b981", soft: "bg-emerald-50 text-emerald-700 ring-emerald-200" };
+  if (rec === "conditional")
+    return { bg: "bg-amber-400", text: "text-white", label: "CONDITIONAL", accent: "#f59e0b", soft: "bg-amber-50 text-amber-700 ring-amber-200" };
+  if (rec === "nogo")
+    return { bg: "bg-red-500", text: "text-white", label: "NO-GO", accent: "#ef4444", soft: "bg-red-50 text-red-700 ring-red-200" };
+  return { bg: "bg-slate-300", text: "text-slate-600", label: "UNKNOWN", accent: "#94a3b8", soft: "bg-slate-100 text-slate-600 ring-slate-200" };
 }
 
 function groupByProject(releases) {
@@ -85,16 +88,20 @@ export default function AllReleases() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">
-            All Releases{" "}
-            <span className="text-slate-400 font-normal">
-              ({grouped.size} project{grouped.size !== 1 ? "s" : ""},{" "}
-              {releases.length} release{releases.length !== 1 ? "s" : ""})
-            </span>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+            All <span className="text-gradient">Releases</span>
           </h2>
-          <p className="text-xs text-slate-500">click a project to expand its releases</p>
+          <div className="mt-1.5 flex items-center gap-2 text-sm text-slate-500">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+              {grouped.size} project{grouped.size !== 1 ? "s" : ""}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+              {releases.length} release{releases.length !== 1 ? "s" : ""}
+            </span>
+            <span className="text-xs text-slate-400">· click a project to expand</span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -136,7 +143,7 @@ function ScoreRingMini({ score, rec }) {
   return (
     <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90" style={{ position: "absolute", top: 0, left: 0 }}>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#e2e8f0" strokeWidth={5} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" className="ring-track" strokeWidth={5} />
         {score != null && (
           <circle
             cx={size / 2}
@@ -157,22 +164,38 @@ function ScoreRingMini({ score, rec }) {
   );
 }
 
+function MetaChip({ icon, children }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+      <span className="text-slate-400">{icon}</span>
+      {children}
+    </span>
+  );
+}
+
 function ProjectAccordion({ projectName, releases, isOpen, onToggle, onNavigate }) {
   const latest = releases[0];
   const sc = latest?.scorecard || {};
   const rec = sc.recommendation;
-  const { bg, text, label } = healthColor(rec);
+  const { label, accent, soft } = healthColor(rec);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div
+      className={`group relative overflow-hidden rounded-2xl border bg-white shadow-sm transition-all ${
+        isOpen ? "border-slate-300 shadow-md" : "border-slate-200 hover:border-slate-300 hover:shadow-md"
+      }`}
+    >
+      {/* Health-colored accent stripe */}
+      <div className="absolute inset-y-0 left-0 w-1.5 z-10 pointer-events-none" style={{ background: accent }} />
+
       <button
         onClick={onToggle}
-        className="w-full text-left px-4 py-4 flex items-center gap-4 hover:bg-slate-50 transition-colors"
+        className="w-full text-left pl-5 pr-4 py-4 flex items-center gap-4 hover:bg-slate-50/70 transition-colors"
       >
         <ScoreRingMini score={sc.score ?? null} rec={rec} />
 
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-slate-900">
+          <div className="font-semibold text-slate-900 truncate">
             {latest?.customerName && latest.customerName !== projectName && (
               <span className="text-xs font-normal text-slate-500 mr-1">
                 {latest.customerName} ·{" "}
@@ -180,22 +203,27 @@ function ProjectAccordion({ projectName, releases, isOpen, onToggle, onNavigate 
             )}
             {projectName}
           </div>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${bg} ${text}`}>
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ring-1 ${soft}`}>
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: accent }} />
               {label}
             </span>
-            <span className="text-xs text-slate-400">
+            {latest?.releaseType && (
+              <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                {latest.releaseType}
+              </span>
+            )}
+            <MetaChip icon="📦">
               {releases.length} release{releases.length !== 1 ? "s" : ""}
-            </span>
-            {latest?.releaseDate && (
-              <span className="text-xs text-slate-400">latest: {latest.releaseDate}</span>
-            )}
-            {latest?.owner && (
-              <span className="text-xs text-slate-400">· {latest.owner}</span>
-            )}
+            </MetaChip>
+            {latest?.releaseDate && <MetaChip icon="📅">{latest.releaseDate}</MetaChip>}
+            {latest?.owner && <MetaChip icon="👤">{latest.owner}</MetaChip>}
           </div>
         </div>
 
+        <span className={`hidden sm:flex items-center gap-1 text-xs font-medium text-slate-400 shrink-0 transition-opacity ${isOpen ? "opacity-0" : "group-hover:opacity-100 opacity-0"}`}>
+          {isOpen ? "Hide" : "View"}
+        </span>
         <svg
           className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
@@ -206,7 +234,7 @@ function ProjectAccordion({ projectName, releases, isOpen, onToggle, onNavigate 
 
       {isOpen && (
         <div className="border-t border-slate-100">
-          <div className="px-4 py-2 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+          <div className="pl-5 pr-4 py-2 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
             Releases — click to open scorecard
           </div>
           {releases.map((r, i) => {
@@ -217,7 +245,7 @@ function ProjectAccordion({ projectName, releases, isOpen, onToggle, onNavigate 
               <button
                 key={r.id}
                 onClick={() => onNavigate(r.id)}
-                className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors ${
+                className={`w-full text-left pl-5 pr-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors ${
                   i !== releases.length - 1 ? "border-b border-slate-100" : ""
                 }`}
               >

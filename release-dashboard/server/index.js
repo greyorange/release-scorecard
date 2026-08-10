@@ -19,6 +19,7 @@ import {
   replaceAllReleases,
 } from "./store.js";
 import { scoreRelease } from "./scorecard.js";
+import { calculateAspectScores } from "./phase2-scorecard.js";
 import { fetchBugsFor, fetchIssuesByIds, syncRelease, startPolling } from "./jira.js";
 import { renderReleasePdf } from "./pdf.js";
 import { parseCsvDir } from "./csvParser.js";
@@ -48,7 +49,14 @@ app.use(express.json({ limit: "1mb" }));
 
 function withScore(release) {
   if (!release) return null;
-  return { ...release, scorecard: scoreRelease(release) };
+  const scorecard = scoreRelease(release);
+  // Phase-2 aspect scores (Automation / Health / Compliance / Features) —
+  // derived from the release's current metrics, surfaced so ScoreTabs can
+  // show the four independent views alongside the overall quality score.
+  // Snapshots/finalization are intentionally excluded: they aren't yet backed
+  // by real time-series data, so surfacing them would be misleading.
+  scorecard.aspectScores = calculateAspectScores(release);
+  return { ...release, scorecard };
 }
 
 // ---------- API --------------------------------------------------------- //
@@ -124,7 +132,7 @@ function writeReleaseFromJson(body, { replaceCsvName = null } = {}) {
   return {
     id: newSlug,
     savedAs: safeName,
-    release: release ? { ...release, scorecard: scoreRelease(release) } : null,
+    release: withScore(release),
   };
 }
 

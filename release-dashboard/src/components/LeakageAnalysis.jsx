@@ -4,7 +4,7 @@
 export default function LeakageAnalysis({ stages = {}, leakageMetrics = null }) {
   const stageNames = ["sqa", "sit", "production"];
   const stageLabels = {
-    sqa: "SQA",
+    sqa: "QA",
     sit: "SIT",
     production: "Production",
   };
@@ -38,7 +38,9 @@ export default function LeakageAnalysis({ stages = {}, leakageMetrics = null }) 
           <div key={stage}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-medium text-slate-700">{stageLabels[stage]}</span>
-              <span className="text-lg font-bold text-slate-900">{bugs[stage]} bugs</span>
+              <span className="text-lg font-bold text-slate-900">
+                {bugs[stage]} bug{bugs[stage] !== 1 ? "s" : ""}
+              </span>
             </div>
 
             {/* Progress bar */}
@@ -62,9 +64,6 @@ export default function LeakageAnalysis({ stages = {}, leakageMetrics = null }) 
               <div className="mt-2 flex items-center justify-between text-xs text-slate-600">
                 <span>↓</span>
                 <div className="flex items-center gap-2">
-                  <span>
-                    {stage === "sqa" ? sqaToSitLeakage : sitToProdLeakage}% leaked
-                  </span>
                   <div
                     className={`px-2 py-0.5 rounded ${
                       stage === "sqa"
@@ -97,24 +96,6 @@ export default function LeakageAnalysis({ stages = {}, leakageMetrics = null }) 
             )}
           </div>
         ))}
-      </div>
-
-      {/* Summary */}
-      <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-slate-500">SQA → SIT</div>
-          <div className="text-lg font-bold text-slate-900">{sqaToSitLeakage}%</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-slate-500">SIT → Prod</div>
-          <div className="text-lg font-bold text-slate-900">{sitToProdLeakage}%</div>
-        </div>
-      </div>
-
-      {/* Interpretation */}
-      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-        <strong>Lower leakage % is better.</strong> High SQA→SIT leakage means SQA missed bugs. High SIT→Prod leakage
-        means bugs escaped final testing.
       </div>
     </div>
   );

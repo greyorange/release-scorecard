@@ -1,6 +1,13 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { useIsDark } from "../useTheme.js";
 
 const LABELS = {
+  // Current 4-factor quality model (see scorecard.js)
+  sopAdherence: "SOP & Timeline",
+  productQuality: "Product Quality",
+  featureDelivery: "Feature Delivery",
+  automationReadiness: "Automation Readiness",
+  // Legacy factor keys (older records / other scorers)
   testPassRate: "Test Pass Rate",
   automationCoverage: "Automation Coverage",
   criticalBugsOpen: "Critical Bugs Open",
@@ -9,6 +16,8 @@ const LABELS = {
 };
 
 export default function ScoreBreakdown({ scorecard }) {
+  const isDark = useIsDark();
+  const axis = isDark ? "#8b93a3" : "#64748b";
   if (!scorecard?.breakdown) return null;
 
   const data = Object.entries(scorecard.breakdown).map(([key, b]) => ({
@@ -38,7 +47,7 @@ export default function ScoreBreakdown({ scorecard }) {
     }
     const rawSuffix = d.raw != null ? `  (raw: ${d.raw})` : "";
     return (
-      <text x={labelX} y={labelY} fontSize={11} fill="#0f172a">
+      <text x={labelX} y={labelY} fontSize={11} fill={isDark ? "#e6e9ef" : "#0f172a"}>
         {d.score}
         <tspan fill="#94a3b8">{rawSuffix}</tspan>
       </text>
@@ -56,8 +65,8 @@ export default function ScoreBreakdown({ scorecard }) {
       <div style={{ width: "100%", height: 260 }}>
         <ResponsiveContainer>
           <BarChart layout="vertical" data={data} margin={{ left: 30, right: 110 }}>
-            <XAxis type="number" domain={[0, 100]} fontSize={12} />
-            <YAxis type="category" dataKey="dimension" width={130} fontSize={12} />
+            <XAxis type="number" domain={[0, 100]} fontSize={12} stroke={axis} tick={{ fill: axis }} />
+            <YAxis type="category" dataKey="dimension" width={130} fontSize={12} stroke={axis} tick={{ fill: axis }} />
             <Tooltip
               formatter={(v, _n, p) =>
                 p.payload.available

@@ -94,7 +94,8 @@ export default function ScoreEvolution({ scorecard = {} }) {
             </>
           ) : (
             <>
-              <strong>📊 Monitoring:</strong> Observation window closes in {finalization.daysRemaining} days
+              <strong>📊 Monitoring:</strong> Observation window closes in {finalization.daysRemaining}{" "}
+              day{finalization.daysRemaining !== 1 ? "s" : ""}
             </>
           )}
         </div>

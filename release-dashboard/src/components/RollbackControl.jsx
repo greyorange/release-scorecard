@@ -428,7 +428,8 @@ function BackupCard({ backup, onRestore }) {
       <div className="flex-1">
         <div className="font-semibold text-slate-900">{backup.id}</div>
         <div className="text-xs text-slate-500">
-          {new Date(backup.createdAt).toLocaleString()} · {sizeGb} GB · {backup.releaseCount} releases
+          {new Date(backup.createdAt).toLocaleString()} · {sizeGb} GB · {backup.releaseCount} release
+          {backup.releaseCount !== 1 ? "s" : ""}
         </div>
         {backup.reason && (
           <div className="text-sm text-slate-600 mt-1">Note: {backup.reason}</div>

@@ -37,6 +37,15 @@ function invertedScore(value, cap) {
   return clamp(100 * (1 - value / cap));
 }
 
+// A stage may be a plain number or the csv `stageBlock` object {total,...}.
+// Pull out the numeric bug count either way; null when unavailable.
+function stageCount(stage) {
+  if (stage == null) return null;
+  if (typeof stage === "number") return Number.isNaN(stage) ? null : stage;
+  if (typeof stage === "object" && stage.total != null) return stage.total;
+  return null;
+}
+
 // Factor 1: SOP & Timeline Adherence (25%)
 function calculateSopAdherence(release) {
   if (!release.sopCompliance) return null;
@@ -52,7 +61,9 @@ function calculateSopAdherence(release) {
     const planned = new Date(sop.plannedReleaseDate);
     const actual = new Date(sop.actualReleaseDate);
     const daysDiff = Math.abs((actual - planned) / (1000 * 60 * 60 * 24));
-    timelineScore = invertedScore(daysDiff, 14) || 100;
+    // ?? not || — a >=14-day slip legitimately scores 0 and must not be
+    // silently upgraded back to 100.
+    timelineScore = invertedScore(daysDiff, 14) ?? 100;
   }
 
   return Math.round((sopScore + timelineScore) / 2);
@@ -60,26 +71,32 @@ function calculateSopAdherence(release) {
 
 // Factor 2: Product Quality (40%) — test coverage + bug metrics + leakage
 function calculateProductQuality(release) {
-  // Test Coverage (25% of product quality)
-  const testPassRate = directScore(release.testPassRate) || 50;
-  const automationCov = directScore(release.automationCoverage) || 50;
+  // Test Coverage (25% of product quality). ?? not || so a genuine 0% pass
+  // rate isn't misread as "missing" and bumped to 50.
+  const testPassRate = directScore(release.testPassRate) ?? 50;
+  const automationCov = directScore(release.automationCoverage) ?? 50;
   const testCoverageScore = (testPassRate + automationCov) / 2;
 
-  // Bug Metrics (50% of product quality)
+  // Bug Metrics (50% of product quality) — average whichever signals exist.
   const criticalScore = invertedScore(release.criticalBugsOpen, INVERTED_CAPS.criticalBugsOpen);
   const escapedScore = invertedScore(release.escapedDefects, INVERTED_CAPS.escapedDefects);
+  const bugSignals = [criticalScore, escapedScore].filter((v) => v != null);
+  const bugScore = bugSignals.length
+    ? bugSignals.reduce((a, b) => a + b, 0) / bugSignals.length
+    : 50;
 
-  // Leakage (25% of product quality) — bugs escaping from SQA to production
+  // Leakage (25% of product quality) — bugs escaping from SQA to production.
+  // stageCount handles the {total,...} stage object; the previous code used
+  // the object directly, producing NaN and silently disabling this factor.
   let leakageScore = 100;
-  if (release.stages && release.stages.sqa != null && release.stages.production != null) {
-    const sqaBugs = release.stages.sqa || 0;
-    const prodBugs = release.stages.production || 0;
+  const sqaBugs = stageCount(release.stages?.sqa);
+  const prodBugs = stageCount(release.stages?.production);
+  if (sqaBugs != null && prodBugs != null) {
     const leakageRate = sqaBugs > 0 ? (prodBugs / sqaBugs) * 100 : 0;
-    leakageScore = invertedScore(leakageRate, 50) || 100;
+    leakageScore = invertedScore(leakageRate, 50) ?? 100;
   }
 
-  const bugScore = (criticalScore || 50 + escapedScore || 50) / 2;
-  return Math.round((testCoverageScore * 0.25 + bugScore * 0.5 + leakageScore * 0.25));
+  return Math.round(testCoverageScore * 0.25 + bugScore * 0.5 + leakageScore * 0.25);
 }
 
 // Factor 3: Feature Delivery (20%) — requirements met vs planned

@@ -7,12 +7,15 @@ import ScoreRing from "./ScoreRing.jsx";
 import MetricsGrid from "./MetricsGrid.jsx";
 import ScoreBreakdown from "./ScoreBreakdown.jsx";
 import HistoryChart from "./HistoryChart.jsx";
-import IssueCard from "./IssueCard.jsx";
+import RcaCapaGroups from "./RcaCapaGroups.jsx";
 import TeamLearnings from "./TeamLearnings.jsx";
 import JiraIssuesTable from "./JiraIssuesTable.jsx";
 import BugClassification from "./BugClassification.jsx";
 import SopCompliance from "./SopCompliance.jsx";
 import LeakageAnalysis from "./LeakageAnalysis.jsx";
+import FeatureDelivery from "./FeatureDelivery.jsx";
+import ScoreTabs from "./ScoreTabs.jsx";
+import StageBreakdown from "./StageBreakdown.jsx";
 
 export default function ProjectView() {
   const { id } = useParams();
@@ -120,16 +123,25 @@ export default function ProjectView() {
         <BugClassification data={release.bugClassification} />
       </section>
 
+      <ScoreTabs scorecard={release.scorecard} />
+
       <MetricsGrid release={release} />
 
       {release.sopCompliance && (
         <SopCompliance sopCompliance={release.sopCompliance} />
       )}
 
+      <FeatureDelivery
+        requirements={release.requirements}
+        featureScore={release.scorecard?.qualityDimensions?.featureDelivery}
+      />
+
       <section className="grid lg:grid-cols-2 gap-4">
         <ScoreBreakdown scorecard={release.scorecard} />
         <LeakageAnalysis stages={release.stages} leakageMetrics={release.leakageMetrics} />
       </section>
+
+      <StageBreakdown stages={release.stages} />
 
       {history.length > 1 && <HistoryChart history={history} />}
 
@@ -142,20 +154,16 @@ export default function ProjectView() {
       )}
 
       <section>
-        <h3 className="font-semibold text-slate-800 mb-3">RCA &amp; CAPA</h3>
+        <h3 className="section-title">RCA &amp; CAPA</h3>
         {release.issues?.length ? (
-          <div className="grid md:grid-cols-2 gap-3">
-            {release.issues.map((issue) => (
-              <IssueCard key={issue.id} issue={issue} jiraBaseUrl={config.jiraBaseUrl} />
-            ))}
-          </div>
+          <RcaCapaGroups issues={release.issues} jiraBaseUrl={config.jiraBaseUrl} />
         ) : (
           <div className="card text-sm text-slate-500">No issues logged.</div>
         )}
       </section>
 
       <section>
-        <h3 className="font-semibold text-slate-800 mb-3">Team Learnings</h3>
+        <h3 className="section-title">Team Learnings</h3>
         <TeamLearnings learnings={release.teamLearnings} />
       </section>
 

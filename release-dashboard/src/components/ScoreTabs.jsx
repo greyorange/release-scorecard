@@ -66,7 +66,7 @@ export default function ScoreTabs({ scorecard = {} }) {
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition ${
               activeTab === tab.id
-                ? "border-blue-600 text-blue-600"
+                ? "border-brand-500 text-brand-500"
                 : "border-transparent text-slate-600 hover:text-slate-900"
             }`}
           >
@@ -181,7 +181,8 @@ function FinalizationStatus({ finalization }) {
   if (!finalization.isScoringFinalized) {
     return (
       <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-        <strong>Score in observation window.</strong> Finalizes in {finalization.daysRemaining} days (
+        <strong>Score in observation window.</strong> Finalizes in {finalization.daysRemaining}{" "}
+        day{finalization.daysRemaining !== 1 ? "s" : ""} (
         {finalization.observationEndDate?.split("T")[0]}).
       </div>
     );

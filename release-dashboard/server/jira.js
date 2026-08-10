@@ -47,6 +47,57 @@ const SEVERITY_BY_PRIORITY = {
   Lowest: "low",
 };
 
+// RCA / CAPA live in custom fields. IDs are instance-global — the same id is
+// the same field in every project — but a field is only readable if it's on
+// that project's screen, so every read must tolerate `undefined`. (RPE issues,
+// for example, expose RCA but none of the action fields.)
+const CF = {
+  RCA: "customfield_10185",              // "RCA" — rich text
+  DEV_ACTION: "customfield_10722",       // "Dev Preventive / Corrective action" — plain text
+  QA_ACTION_SCRUM: "customfield_10193",  // "Scrum QA Preventive Corrective Action" — rich text
+  QA_ACTION_EPIC: "customfield_10757",   // "Epic QA Preventive Corrective Action" — plain text
+  QA_ACTION_SOLUTION: "customfield_10758", // "Solution QA ..." — plain text
+  QA_RCA: "customfield_10145",           // "QA RCA" — single-select, a category not prose
+};
+
+// Base fields plus every custom field we map. Without listing these
+// explicitly JIRA omits them from the response entirely.
+const REQUEST_FIELDS = [
+  "summary", "priority", "status", "assignee", "duedate", "components", "resolution",
+  ...Object.values(CF),
+].join(",");
+
+// JIRA rich-text fields come back as Atlassian Document Format — a nested
+// {type,content:[...]} tree, not a string. Flatten to plain text, keeping
+// paragraph and list-item breaks so multi-step CAPAs stay readable.
+function adfToText(node) {
+  if (!node) return null;
+  if (typeof node === "string") return node.trim() || null;
+  const walk = (n) => {
+    if (!n) return "";
+    if (n.type === "text") return n.text || "";
+    if (n.type === "hardBreak") return "\n";
+    const inner = (n.content || []).map(walk).join("");
+    return ["paragraph", "listItem", "heading"].includes(n.type) ? inner + "\n" : inner;
+  };
+  const out = walk(node).replace(/\n{3,}/g, "\n\n").trim();
+  return out || null;
+}
+
+// The card template has one CAPA box, but actions are split across Dev and QA
+// fields. Label each so the merged text stays attributable.
+function mergeCapa(f) {
+  const dev = adfToText(f[CF.DEV_ACTION]);
+  const qa =
+    adfToText(f[CF.QA_ACTION_SCRUM]) ||
+    adfToText(f[CF.QA_ACTION_EPIC]) ||
+    adfToText(f[CF.QA_ACTION_SOLUTION]);
+  const parts = [];
+  if (dev) parts.push(`Dev: ${dev}`);
+  if (qa) parts.push(`QA: ${qa}`);
+  return parts.join("\n\n") || null;
+}
+
 // Map a JIRA issue → schema-compatible issue card.
 function mapIssue(issue) {
   const f = issue.fields || {};
@@ -55,8 +106,12 @@ function mapIssue(issue) {
     id: issue.key,
     title: f.summary || issue.key,
     severity: SEVERITY_BY_PRIORITY[priority] || "medium",
-    rca: f.customfield_rca || null, // teams often store RCA in a custom field
-    capa: f.customfield_capa || null,
+    rca: adfToText(f[CF.RCA]),
+    capa: mergeCapa(f),
+    // "QA RCA" is a single-select category (e.g. "Negative Functional"), not
+    // prose — surfaced separately so it can render as a tag, never merged
+    // into the RCA text.
+    qaRcaCategory: f[CF.QA_RCA]?.value || null,
     owner: f.assignee?.displayName || null,
     dueDate: f.duedate || null,
     team: f.components?.[0]?.name || null,
@@ -108,7 +163,7 @@ export async function fetchBugsFor(projectKey, fixVersion, { forceRefresh = fals
         params: {
           jql,
           maxResults: 100,
-          fields: "summary,priority,status,assignee,duedate,components,resolution",
+          fields: REQUEST_FIELDS,
           ...(nextPageToken ? { nextPageToken } : {}),
         },
       });
@@ -152,7 +207,7 @@ export async function fetchIssuesByIds(ids = []) {
       params: {
         jql,
         maxResults: 100,
-        fields: "summary,priority,status,assignee,duedate,components,resolution,issuetype",
+        fields: `${REQUEST_FIELDS},issuetype`,
       },
     });
     const issues = (data.issues || []).map(mapIssue);

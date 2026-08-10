@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { createRelease, fetchProject, updateRelease } from "../api.js";
+import { createRelease, fetchJiraIssuesByIds, fetchProject, updateRelease } from "../api.js";
 
 // Form-driven release entry. Doubles as the edit form: when the URL has
 // a :id param (route /projects/:id/edit), we fetch the existing release
@@ -138,6 +138,84 @@ export default function NewReleaseForm() {
 
   const updateIssue = (idx, field, value) => {
     setIssues((arr) => arr.map((it, i) => (i === idx ? { ...it, [field]: value } : it)));
+  };
+
+  // Prefill RCA/CAPA cards from the JIRA IDs above. Strictly additive: only
+  // blank fields are filled, so anything already typed survives a re-fetch.
+  // Cards are matched by JIRA ID; unknown IDs get a new card appended.
+  // NB: `prefilling` above is the edit-mode load flag — these are distinct.
+  const [jiraFetching, setJiraFetching] = useState(false);
+  const [jiraMsg, setJiraMsg] = useState(null);
+
+  const prefillFromJira = async () => {
+    const ids = jiraIdsStr.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
+    if (!ids.length) return;
+    setJiraFetching(true);
+    setJiraMsg(null);
+    try {
+      const res = await fetchJiraIssuesByIds(ids);
+      if (res.enabled === false) {
+        setJiraMsg({ kind: "warn", text: "JIRA is not configured — nothing to prefill." });
+        return;
+      }
+      const fetched = res.issues || [];
+      let filledFields = 0;
+      let addedCards = 0;
+
+      // Merge synchronously against current state rather than inside a
+      // setIssues updater — React defers updaters, so counters tallied in
+      // one always read back as zero.
+      const next = [...issues];
+      {
+        for (const src of fetched) {
+          if (src.missing) continue;
+          const incoming = {
+            jiraId: src.id || "",
+            title: src.title || "",
+            severity: src.severity || "",
+            owner: src.owner || "",
+            dueDate: src.dueDate || "",
+            rca: src.rca || "",
+            capa: src.capa || "",
+          };
+          let i = next.findIndex(
+            (c) => c.jiraId.trim().toUpperCase() === String(src.id).toUpperCase(),
+          );
+          // Reuse a still-untouched blank card before appending a new one.
+          if (i === -1) {
+            i = next.findIndex((c) => !c.jiraId.trim() && !c.title.trim() && !c.rca.trim());
+            if (i === -1) {
+              next.push(emptyIssue());
+              i = next.length - 1;
+            }
+            addedCards++;
+          }
+          const merged = { ...next[i] };
+          for (const [k, v] of Object.entries(incoming)) {
+            // severity always has a default, so only overwrite when blank-ish
+            const isBlank = !String(merged[k] ?? "").trim() || (k === "severity" && merged[k] === "medium");
+            if (v && isBlank && merged[k] !== v) {
+              merged[k] = v;
+              filledFields++;
+            }
+          }
+          next[i] = merged;
+        }
+      }
+      setIssues(next);
+
+      const noData = fetched.filter((f) => !f.missing && !f.rca && !f.capa).map((f) => f.id);
+      const missing = fetched.filter((f) => f.missing).map((f) => f.id);
+      const bits = [`Filled ${filledFields} field${filledFields === 1 ? "" : "s"} across ${fetched.length - missing.length} issue${fetched.length - missing.length === 1 ? "" : "s"}`];
+      if (addedCards) bits.push(`${addedCards} card${addedCards === 1 ? "" : "s"} added`);
+      if (noData.length) bits.push(`no RCA/CAPA in JIRA for ${noData.join(", ")}`);
+      if (missing.length) bits.push(`not found: ${missing.join(", ")}`);
+      setJiraMsg({ kind: noData.length || missing.length ? "warn" : "ok", text: bits.join(" · ") });
+    } catch (err) {
+      setJiraMsg({ kind: "error", text: err.response?.data?.error || err.message });
+    } finally {
+      setJiraFetching(false);
+    }
   };
   const updateLearning = (idx, field, value) => {
     setLearnings((arr) => arr.map((it, i) => (i === idx ? { ...it, [field]: value } : it)));
@@ -400,6 +478,30 @@ export default function NewReleaseForm() {
           onChange={setJiraIdsStr}
           placeholder="GM-1001, GM-1002, GM-1003"
         />
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={prefillFromJira}
+            disabled={jiraFetching || !jiraIdsStr.trim()}
+            className="px-3 py-1.5 rounded-md text-sm font-medium bg-slate-900 text-white hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {jiraFetching ? "Fetching…" : "Prefill RCA / CAPA cards from JIRA"}
+          </button>
+          <span className="text-xs text-slate-500">Fills blank fields only — your edits are never overwritten.</span>
+        </div>
+        {jiraMsg && (
+          <div
+            className={`text-sm rounded-md px-3 py-2 ${
+              jiraMsg.kind === "error"
+                ? "bg-red-50 text-red-700"
+                : jiraMsg.kind === "warn"
+                ? "bg-amber-50 text-amber-800"
+                : "bg-green-50 text-green-800"
+            }`}
+          >
+            {jiraMsg.text}
+          </div>
+        )}
       </section>
 
       {/* ---------------- Issue cards ---------------- */}
