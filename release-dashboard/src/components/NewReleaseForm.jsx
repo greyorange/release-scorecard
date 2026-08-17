@@ -7,10 +7,12 @@ import { createRelease, fetchJiraIssuesByIds, fetchProject, updateRelease } from
 // and prefill the inputs, then submit via PUT instead of POST.
 
 const SEVERITIES = ["critical", "high", "medium", "low"];
+const ISSUE_STATUSES = ["open", "in-progress", "closed"];
 
 const emptyIssue = () => ({
   jiraId: "", title: "", severity: "medium",
   rca: "", capa: "", owner: "", dueDate: "",
+  status: "open", completedDate: "",
 });
 
 const emptyLearning = () => ({ team: "", note: "", owner: "", dueDate: "" });
@@ -115,6 +117,8 @@ export default function NewReleaseForm() {
           capa: i.capa || "",
           owner: i.owner || "",
           dueDate: i.dueDate ? String(i.dueDate).slice(0, 10) : "",
+          status: i.status || "open",
+          completedDate: i.completedDate ? String(i.completedDate).slice(0, 10) : "",
         }));
         setIssues(formIssues.length ? formIssues : [emptyIssue()]);
         const formLearnings = (r.teamLearnings || []).map((l) => ({
@@ -169,6 +173,15 @@ export default function NewReleaseForm() {
       {
         for (const src of fetched) {
           if (src.missing) continue;
+          // JIRA's own workflow status ("Done", "In Progress", "To Do", ...)
+          // doesn't match our open/in-progress/closed tracking vocabulary —
+          // map it with a simple heuristic rather than leaving it unset.
+          const jiraStatus = String(src.status || "").toLowerCase();
+          const mappedStatus = /done|closed|resolved/.test(jiraStatus)
+            ? "closed"
+            : /progress/.test(jiraStatus)
+              ? "in-progress"
+              : "";
           const incoming = {
             jiraId: src.id || "",
             title: src.title || "",
@@ -177,6 +190,7 @@ export default function NewReleaseForm() {
             dueDate: src.dueDate || "",
             rca: src.rca || "",
             capa: src.capa || "",
+            status: mappedStatus,
           };
           let i = next.findIndex(
             (c) => c.jiraId.trim().toUpperCase() === String(src.id).toUpperCase(),
@@ -192,8 +206,12 @@ export default function NewReleaseForm() {
           }
           const merged = { ...next[i] };
           for (const [k, v] of Object.entries(incoming)) {
-            // severity always has a default, so only overwrite when blank-ish
-            const isBlank = !String(merged[k] ?? "").trim() || (k === "severity" && merged[k] === "medium");
+            // severity and status always have a default, so only overwrite
+            // when still at that default (i.e. blank-ish, not a deliberate edit).
+            const isBlank =
+              !String(merged[k] ?? "").trim() ||
+              (k === "severity" && merged[k] === "medium") ||
+              (k === "status" && merged[k] === "open");
             if (v && isBlank && merged[k] !== v) {
               merged[k] = v;
               filledFields++;
@@ -294,6 +312,8 @@ export default function NewReleaseForm() {
         capa: i.capa.trim() || undefined,
         owner: i.owner.trim() || undefined,
         dueDate: i.dueDate || undefined,
+        status: i.status || "open",
+        completedDate: i.status === "closed" ? i.completedDate || undefined : undefined,
       }));
     if (cleanedIssues.length) payload.issues = cleanedIssues;
 
@@ -539,6 +559,10 @@ export default function NewReleaseForm() {
                 <SelectField label="Severity" value={issue.severity} onChange={(v) => updateIssue(idx, "severity", v)} options={SEVERITIES} />
                 <Field label="Owner" value={issue.owner} onChange={(v) => updateIssue(idx, "owner", v)} />
                 <Field label="Due Date" type="date" value={issue.dueDate} onChange={(v) => updateIssue(idx, "dueDate", v)} />
+                <SelectField label="Status" value={issue.status || "open"} onChange={(v) => updateIssue(idx, "status", v)} options={ISSUE_STATUSES} />
+                {issue.status === "closed" && (
+                  <Field label="Completed Date" type="date" value={issue.completedDate} onChange={(v) => updateIssue(idx, "completedDate", v)} />
+                )}
               </div>
               <Field label="RCA" textarea value={issue.rca} onChange={(v) => updateIssue(idx, "rca", v)} placeholder="Root cause" />
               <Field label="CAPA" textarea value={issue.capa} onChange={(v) => updateIssue(idx, "capa", v)} placeholder="Corrective action" />

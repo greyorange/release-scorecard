@@ -13,7 +13,7 @@
 //     sopCompliance: { preReleaseSopCompleted, releaseNotesReady, signoffObtained, rollbackPlanReady },
 //     requirements: { planned: [...], delivered: [...], deferred: [...] },
 //     jiraIds:  ["GM-1001", ...],
-//     issues:   [{ jiraId, title, severity, rca, capa, owner, dueDate }],
+//     issues:   [{ jiraId, title, severity, rca, capa, owner, dueDate, status, completedDate }],
 //     learnings:[{ team, note, owner, dueDate }],
 //   }
 
@@ -40,6 +40,7 @@ function buildHeaders(maxIssues, maxLearnings) {
     base.push(
       `Issue ${n} JIRA ID`, `Issue ${n} Title`, `Issue ${n} Severity`,
       `Issue ${n} RCA`, `Issue ${n} CAPA`, `Issue ${n} Owner`, `Issue ${n} Due Date`,
+      `Issue ${n} Status`, `Issue ${n} Completed Date`,
     );
   }
   for (let n = 1; n <= maxLearnings; n++) {
@@ -73,7 +74,7 @@ function releaseToRow(rel, maxIssues, maxLearnings) {
   const issues = rel.issues || [];
   for (let n = 0; n < maxIssues; n++) {
     const i = issues[n] || {};
-    row.push(i.jiraId, i.title, i.severity, i.rca, i.capa, i.owner, i.dueDate);
+    row.push(i.jiraId, i.title, i.severity, i.rca, i.capa, i.owner, i.dueDate, i.status, i.completedDate);
   }
   const learnings = rel.learnings || [];
   for (let n = 0; n < maxLearnings; n++) {

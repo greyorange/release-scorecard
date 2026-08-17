@@ -17,9 +17,13 @@ import {
   getCapa,
   putReleases,
   replaceAllReleases,
+  getScoreLock,
+  putScoreLock,
+  getScoreSnapshots,
+  appendScoreSnapshot,
 } from "./store.js";
 import { scoreRelease } from "./scorecard.js";
-import { calculateAspectScores } from "./phase2-scorecard.js";
+import { calculateAspectScores, createScoreSnapshot, finalizeScore } from "./phase2-scorecard.js";
 import { fetchBugsFor, fetchIssuesByIds, syncRelease, startPolling } from "./jira.js";
 import { renderReleasePdf } from "./pdf.js";
 import { parseCsvDir } from "./csvParser.js";
@@ -47,15 +51,92 @@ app.use(express.json({ limit: "1mb" }));
 
 // ---------- helpers ----------------------------------------------------- //
 
+const OBSERVATION_WINDOW_DAYS = 7;
+const SNAPSHOT_INTERVAL_DAYS = [1, 3, 7, 14];
+
+function rationaleFor(score, breakdown) {
+  if (score == null) return "Not enough scoring inputs available.";
+  return `Quality score ${score}/100 (SOP: ${breakdown?.sopAdherence?.value ?? "—"}, Product: ${breakdown?.productQuality?.value ?? "—"}, Features: ${breakdown?.featureDelivery?.value ?? "—"})`;
+}
+
+// Captures a real snapshot the first time each 1/3/7/14-day mark actually
+// passes, and freezes ("locks") the score once the 7-day observation window
+// closes. Both are persisted outside the CSV-derived release record — like
+// `capa` — because `replaceAllReleases` rebuilds `data.releases` from disk
+// on every re-ingest and would otherwise wipe them.
+//
+// Known limitation: a snapshot necessarily reflects whatever data is current
+// *at the moment its mark passes* — there's no change-log of past field
+// values to rewind to. For a release backfilled with a `releaseDate`
+// already weeks old, every mark passes at once on first read and all
+// snapshots end up identical (today's data, relabeled by day). Snapshots
+// taken as real time elapses on an active release are accurate.
+function reconcileScoreState(release) {
+  if (!release.releaseDate) return { lock: null, snapshots: [], finalization: null };
+
+  const releaseDate = new Date(release.releaseDate);
+  if (Number.isNaN(releaseDate.getTime())) {
+    return { lock: null, snapshots: [], finalization: null };
+  }
+
+  const daysSince = (Date.now() - releaseDate.getTime()) / 86_400_000;
+
+  let snapshots = getScoreSnapshots(release.id);
+  const captured = new Set(snapshots.map((s) => s.daysSinceRelease));
+  for (const days of SNAPSHOT_INTERVAL_DAYS) {
+    if (daysSince >= days && !captured.has(days)) {
+      snapshots = appendScoreSnapshot(release.id, createScoreSnapshot(release, days));
+    }
+  }
+
+  const finalization = finalizeScore(release, OBSERVATION_WINDOW_DAYS);
+  let lock = getScoreLock(release.id);
+  if (finalization?.isScoringFinalized && !lock) {
+    lock = putScoreLock(release.id, {
+      ...createScoreSnapshot(release, OBSERVATION_WINDOW_DAYS),
+      frozenAt: finalization.frozenAt,
+    });
+  }
+
+  return { lock, snapshots, finalization };
+}
+
 function withScore(release) {
   if (!release) return null;
-  const scorecard = scoreRelease(release);
-  // Phase-2 aspect scores (Automation / Health / Compliance / Features) —
-  // derived from the release's current metrics, surfaced so ScoreTabs can
-  // show the four independent views alongside the overall quality score.
-  // Snapshots/finalization are intentionally excluded: they aren't yet backed
-  // by real time-series data, so surfacing them would be misleading.
-  scorecard.aspectScores = calculateAspectScores(release);
+
+  const live = scoreRelease(release);
+  live.aspectScores = calculateAspectScores(release);
+
+  const { lock, snapshots, finalization } = reconcileScoreState(release);
+
+  // Once locked, the frozen values are what's shown by default — the number
+  // that doesn't silently drift if a later JIRA sync changes bug counts.
+  // `scorecard.live` is always included so the UI can offer "view live
+  // score instead" without a second request.
+  const scorecard = lock
+    ? {
+        score: lock.score,
+        recommendation: lock.recommendation,
+        breakdown: lock.breakdown,
+        qualityDimensions: lock.qualityDimensions,
+        aspectScores: lock.aspectScores,
+        rationale: rationaleFor(lock.score, lock.breakdown),
+      }
+    : { ...live };
+
+  scorecard.isLocked = Boolean(lock);
+  scorecard.frozenAt = lock?.frozenAt ?? null;
+  scorecard.finalization = finalization;
+  scorecard.snapshots = snapshots;
+  scorecard.live = {
+    score: live.score,
+    recommendation: live.recommendation,
+    breakdown: live.breakdown,
+    qualityDimensions: live.qualityDimensions,
+    aspectScores: live.aspectScores,
+    rationale: live.rationale,
+  };
+
   return { ...release, scorecard };
 }
 

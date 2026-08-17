@@ -120,6 +120,8 @@ export function rowToRelease(row, index = 0) {
         stage: c.stage,
         jiraId: c.jiraId,
         jiraUrl: c.jiraUrl,
+        status: c.status,
+        completedDate: c.completedDate,
       });
     }
   } else {
@@ -338,6 +340,11 @@ function capaSlotsFromRow(row) {
       dueDate: (get("Due Date") || "").toString().trim() || null,
       jiraId,
       jiraUrl: jiraUrlFor(jiraId),
+      status:
+        ["open", "in-progress", "closed"].find(
+          (s) => s === (get("Status") || "").toString().trim().toLowerCase(),
+        ) || "open",
+      completedDate: (get("Completed Date") || "").toString().trim() || null,
     });
   }
   return out;

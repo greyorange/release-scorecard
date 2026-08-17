@@ -5,6 +5,24 @@ const SEVERITY_COLOR = {
   low: "border-slate-300 bg-slate-50",
 };
 
+const STATUS_COLOR = {
+  open: "bg-slate-100 text-slate-600",
+  "in-progress": "bg-sky-100 text-sky-700",
+  closed: "bg-emerald-100 text-emerald-700",
+};
+
+function StatusPill({ status }) {
+  return (
+    <span
+      className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
+        STATUS_COLOR[status] || STATUS_COLOR.open
+      }`}
+    >
+      {status.replace("-", " ")}
+    </span>
+  );
+}
+
 export default function IssueCard({ issue, jiraBaseUrl }) {
   const tone = SEVERITY_COLOR[issue.severity] || SEVERITY_COLOR.medium;
   // Prefer a URL the server already built; otherwise build one from the
@@ -51,9 +69,17 @@ export default function IssueCard({ issue, jiraBaseUrl }) {
             </a>
           )}
         </div>
-        <div className="text-right text-xs text-slate-600 shrink-0">
+        <div className="text-right text-xs text-slate-600 shrink-0 space-y-1">
+          {issue.status && (
+            <div>
+              <StatusPill status={issue.status} />
+            </div>
+          )}
           {issue.owner && <div>👤 {issue.owner}</div>}
           {issue.dueDate && <div>📅 {issue.dueDate}</div>}
+          {issue.status === "closed" && issue.completedDate && (
+            <div>✅ {issue.completedDate}</div>
+          )}
         </div>
       </div>
 

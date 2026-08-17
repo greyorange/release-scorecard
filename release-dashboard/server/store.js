@@ -95,3 +95,34 @@ export function putCapa(releaseId, capaEntry) {
 export function getCapa(releaseId) {
   return readRaw().capa[releaseId] || [];
 }
+
+// Score lock + snapshot history, stored separately from the CSV-derived
+// release records (same reason `capa` is separate): `replaceAllReleases`
+// wipes and rebuilds `data.releases` on every re-ingest, so anything that
+// needs to persist across that — a frozen score, a snapshot captured at a
+// real point in time — can't live on the release record itself.
+
+export function getScoreLock(releaseId) {
+  return readRaw().scoreLocks?.[releaseId] || null;
+}
+
+export function putScoreLock(releaseId, lock) {
+  const data = readRaw();
+  data.scoreLocks ||= {};
+  data.scoreLocks[releaseId] = lock;
+  writeRaw(data);
+  return lock;
+}
+
+export function getScoreSnapshots(releaseId) {
+  return readRaw().scoreSnapshots?.[releaseId] || [];
+}
+
+export function appendScoreSnapshot(releaseId, snapshot) {
+  const data = readRaw();
+  data.scoreSnapshots ||= {};
+  data.scoreSnapshots[releaseId] ||= [];
+  data.scoreSnapshots[releaseId].push(snapshot);
+  writeRaw(data);
+  return data.scoreSnapshots[releaseId];
+}

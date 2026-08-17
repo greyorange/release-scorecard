@@ -11,7 +11,8 @@ export default function ScoreEvolution({ scorecard = {} }) {
       <div className="card">
         <h3 className="font-semibold text-slate-900 mb-4">Score Evolution</h3>
         <div className="text-center py-8 text-slate-500 text-sm">
-          Score snapshots coming in Phase 2 (24h, 72h, 7d, 14d post-release)
+          No snapshots yet — captured automatically at 1, 3, 7, and 14 days
+          after the release date.
         </div>
       </div>
     );
@@ -23,6 +24,12 @@ export default function ScoreEvolution({ scorecard = {} }) {
         <h3 className="font-semibold text-slate-900">Score Evolution</h3>
         <span className="text-xs text-slate-500">Over observation window</span>
       </div>
+      <p className="-mt-2 mb-4 text-xs text-slate-400">
+        Each bar is captured the first time its day-mark passes, using
+        whichever data is current at that moment. If this release's date is
+        already weeks old, several marks may have passed at once and show
+        identical, up-to-date values rather than true historical readings.
+      </p>
 
       {/* Timeline Chart */}
       <div className="flex items-end gap-3 mb-6 h-48">

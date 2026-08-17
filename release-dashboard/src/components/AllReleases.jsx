@@ -13,6 +13,8 @@ function healthColor(rec) {
   return { bg: "bg-slate-300", text: "text-slate-600", label: "UNKNOWN", accent: "#94a3b8", soft: "bg-slate-100 text-slate-600 ring-slate-200" };
 }
 
+const RELEASE_TYPES = ["major", "minor", "hotfix", "patch", "weekly"];
+
 function groupByProject(releases) {
   const map = new Map();
   for (const r of releases) {
@@ -32,6 +34,7 @@ export default function AllReleases() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expanded, setExpanded] = useState(new Set());
+  const [typeFilter, setTypeFilter] = useState("all");
 
   const reload = useCallback(async () => {
     try {
@@ -84,7 +87,18 @@ export default function AllReleases() {
     );
   }
 
-  const grouped = groupByProject(releases);
+  const countsByType = releases.reduce((acc, r) => {
+    const t = (r.releaseType || "minor").toLowerCase();
+    acc[t] = (acc[t] || 0) + 1;
+    return acc;
+  }, {});
+
+  const filteredReleases =
+    typeFilter === "all"
+      ? releases
+      : releases.filter((r) => (r.releaseType || "minor").toLowerCase() === typeFilter);
+
+  const grouped = groupByProject(filteredReleases);
 
   return (
     <div className="space-y-4">
@@ -98,7 +112,7 @@ export default function AllReleases() {
               {grouped.size} project{grouped.size !== 1 ? "s" : ""}
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-              {releases.length} release{releases.length !== 1 ? "s" : ""}
+              {filteredReleases.length} release{filteredReleases.length !== 1 ? "s" : ""}
             </span>
             <span className="text-xs text-slate-400">· click a project to expand</span>
           </div>
@@ -114,19 +128,73 @@ export default function AllReleases() {
         </div>
       </div>
 
-      <div className="space-y-3">
-        {[...grouped.entries()].map(([projectName, projectReleases]) => (
-          <ProjectAccordion
-            key={projectName}
-            projectName={projectName}
-            releases={projectReleases}
-            isOpen={expanded.has(projectName)}
-            onToggle={() => toggleExpand(projectName)}
-            onNavigate={(id) => nav(`/projects/${id}`)}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        <TypeChip
+          label="All"
+          count={releases.length}
+          active={typeFilter === "all"}
+          onClick={() => setTypeFilter("all")}
+        />
+        {RELEASE_TYPES.filter((t) => countsByType[t]).map((t) => (
+          <TypeChip
+            key={t}
+            label={t}
+            count={countsByType[t]}
+            active={typeFilter === t}
+            onClick={() => setTypeFilter(t)}
           />
         ))}
       </div>
+
+      {grouped.size === 0 ? (
+        <div className="card text-sm text-slate-500">
+          No {typeFilter} releases.{" "}
+          <button
+            type="button"
+            onClick={() => setTypeFilter("all")}
+            className="text-brand-600 hover:underline"
+          >
+            Clear filter
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {[...grouped.entries()].map(([projectName, projectReleases]) => (
+            <ProjectAccordion
+              key={projectName}
+              projectName={projectName}
+              releases={projectReleases}
+              isOpen={expanded.has(projectName)}
+              onToggle={() => toggleExpand(projectName)}
+              onNavigate={(id) => nav(`/projects/${id}`)}
+            />
+          ))}
+        </div>
+      )}
     </div>
+  );
+}
+
+function TypeChip({ label, count, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
+        active
+          ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300"
+          : "border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
+      }`}
+    >
+      {label}
+      <span
+        className={`rounded-full px-1.5 text-[10px] ${
+          active ? "bg-brand-100 dark:bg-brand-500/20" : "bg-slate-100"
+        }`}
+      >
+        {count}
+      </span>
+    </button>
   );
 }
 
