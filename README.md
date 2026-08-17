@@ -27,7 +27,9 @@ Open **http://localhost:5173**.
 - **All Releases** (home page) — every project as a card, showing its
   latest release's score, Go/Conditional/No-Go badge, release type,
   release count, date, and owner. Click a project to expand its full
-  release history; click a release row to open its scorecard.
+  release history; click a release row to open its scorecard. Filter
+  chips (**All / Major / Minor / Hotfix / Patch / Weekly**) bucket the
+  list by release type, with live counts.
 - **+ New Release** — opens the release form (below) to score a new
   release from scratch.
 - **Edit** (inside a release) — reopens the same form pre-filled with
@@ -43,6 +45,14 @@ Open **http://localhost:5173**.
   backups, and roll back if a scoring change misbehaves.
 - **☀️/🌙 toggle** (top right) — switches light/dark theme; the choice
   is remembered.
+- **🔒 Locked score / view live** (on a release page, once the 7-day
+  observation window has closed) — the score locks at T+7d so it
+  doesn't silently drift if a later JIRA sync changes bug counts. This
+  toggle swaps to the live, recalculated-right-now value without
+  leaving the page.
+- **Score Evolution** — a timeline card showing the score at 1, 3, 7,
+  and 14 days post-release, so you can see whether quality issues were
+  caught early or late.
 
 ## What to fill in the New Release form
 
@@ -140,3 +150,31 @@ separate lenses on the same data:
 Fill in more fields → more accurate score. A release with only a title
 and version will show `score: null` ("Not enough scoring inputs
 available") until at least one factor has data.
+
+## Feedback / feature-request status
+
+15 improvement points were tracked against this tool (full detail in
+[`REQUIREMENTS_TRACEABILITY.md`](REQUIREMENTS_TRACEABILITY.md)). Verified
+against the running code — not just doc claims — as of this branch:
+
+| # | Ask | Status | Fixed in |
+| --- | --- | --- | --- |
+| 1 | Define "quality of release" | ✅ Done | `main` |
+| 2 | SOP & timeline checklist | ✅ Done | `main` |
+| 3 | Bug leakage per stage | ✅ Done | `main` / `54786ce` |
+| 4 | Feature delivery vs. plan | ✅ Done | `54786ce` |
+| 5 | RCA/CAPA sharing + completion tracking + bulk export | 🟡 Partial | `b3e1f4b` |
+| 6 | Bucket releases by type | ✅ Done | `b3e1f4b` |
+| 7 | Hierarchical releases (major → weeklies) | ❌ Not wired | — |
+| 8 | Score locked at calc time + versioned | 🟡 Mostly done | `b3e1f4b` |
+| 9 | Reweight toward leakage/timeline/features | ✅ Addressed | `main` |
+| 10 | Bug injection-vs-discovery attribution | ❌ Not wired | — |
+| 11 | Correct cross-release attribution | ❌ Not wired | — |
+| 12 | Score calculated at a fixed point | ✅ Done | `b3e1f4b` |
+| 13 | T+7d scoring window | ✅ Done | `b3e1f4b` |
+| 14 | Score snapshots at 24h/72h/1w/2w | ✅ Done | `b3e1f4b` |
+| 15 | Independent Automation/Health/Compliance/Features tabs | ✅ Done | `54786ce` |
+
+**10 of 15 fully done, 2 partial, 3 not yet wired.** All of this lives on
+branch `Relase_Scorecard_Shivang` only — nothing here is in `main` yet.
+See `REQUIREMENTS_TRACEABILITY.md` for the notes/gaps behind each row.

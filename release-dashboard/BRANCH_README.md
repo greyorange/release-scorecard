@@ -147,6 +147,62 @@ behavior.
 color (`brand-500` instead of `blue-600`) and dark-mode class updates,
 plus a pluralization fix ("Finalizes in 1 day" vs "1 days").
 
+### 11. Score locking, real snapshots, release-type filter, CAPA status (`b3e1f4b`)
+
+- **Score locking** — [`server/index.js`](server/index.js) now calls
+  `finalizeScore()` (already written in `phase2-scorecard.js`, never
+  called before). Once a release's 7-day observation window closes,
+  its score is frozen and persisted in
+  [`server/store.js`](server/store.js) — a new `scoreLocks` namespace,
+  parallel to how `capa` is stored, so a CSV re-ingest can't wipe it.
+  [`ProjectView.jsx`](src/components/ProjectView.jsx) shows the locked
+  value by default with a "🔒 Locked score — view live" toggle.
+- **Real score snapshots** — a new `scoreSnapshots` store namespace
+  captures a snapshot the first time each 1/3/7/14-day mark actually
+  passes (not four fabricated values up front). `ScoreEvolution.jsx`
+  is now imported into `ProjectView.jsx` (it existed but was never
+  rendered) and shows a disclaimer when a backfilled release's marks
+  all landed on the same up-to-date data instead of true history.
+- **Release-type filter** — [`AllReleases.jsx`](src/components/AllReleases.jsx)
+  gained filter chips (major/minor/hotfix/patch/weekly) with live
+  counts that bucket the project list.
+- **CAPA status tracking** — issue cards gained `status`
+  (open/in-progress/closed) and `completedDate`, threaded through
+  [`NewReleaseForm.jsx`](src/components/NewReleaseForm.jsx),
+  [`jsonToCsvConverter.js`](server/jsonToCsvConverter.js),
+  [`csvParser.js`](server/csvParser.js), and shown as a badge on
+  [`IssueCard.jsx`](src/components/IssueCard.jsx). Added a client-side
+  "Export CSV" button for the RCA/CAPA list on
+  [`ProjectView.jsx`](src/components/ProjectView.jsx).
+
+## Requirements-feedback status
+
+15 improvement points were tracked in
+[`REQUIREMENTS_TRACEABILITY.md`](../REQUIREMENTS_TRACEABILITY.md)
+(repo root). Verified against the running code:
+
+| # | Ask | Status | Fixed in |
+| --- | --- | --- | --- |
+| 1 | Define "quality of release" | ✅ Done | `main` |
+| 2 | SOP & timeline checklist | ✅ Done | `main` |
+| 3 | Bug leakage per stage | ✅ Done | `main` / `54786ce` |
+| 4 | Feature delivery vs. plan | ✅ Done | `54786ce` |
+| 5 | RCA/CAPA sharing + completion tracking + bulk export | 🟡 Partial | `b3e1f4b` |
+| 6 | Bucket releases by type | ✅ Done | `b3e1f4b` |
+| 7 | Hierarchical releases | ❌ Not wired | — |
+| 8 | Score locked + versioned | 🟡 Mostly done | `b3e1f4b` |
+| 9 | Reweight toward leakage/timeline/features | ✅ Addressed | `main` |
+| 10 | Bug injection-vs-discovery attribution | ❌ Not wired | — |
+| 11 | Correct cross-release attribution | ❌ Not wired | — |
+| 12 | Score calculated at a fixed point | ✅ Done | `b3e1f4b` |
+| 13 | T+7d scoring window | ✅ Done | `b3e1f4b` |
+| 14 | Score snapshots at 24h/72h/1w/2w | ✅ Done | `b3e1f4b` |
+| 15 | Independent aspect tabs | ✅ Done | `54786ce` |
+
+10 of 15 fully done, 2 partial (5, 8), 3 still disconnected (7, 10, 11) —
+see the traceability doc for the gap behind each row. All of it is on
+this branch only; `main` is untouched.
+
 ## Files changed
 
 ```
@@ -177,6 +233,13 @@ release-dashboard/src/useTheme.js                    23 ++ (new)
 release-dashboard/tailwind.config.js                 36 ++
 ```
 
+Plus, from `b3e1f4b` (section 11 above): 9 files changed, 340
+insertions / 33 deletions —
+`server/csvParser.js`, `server/index.js`, `server/jsonToCsvConverter.js`,
+`server/store.js`, `src/components/AllReleases.jsx`,
+`src/components/IssueCard.jsx`, `src/components/NewReleaseForm.jsx`,
+`src/components/ProjectView.jsx`, `src/components/ScoreEvolution.jsx`.
+
 ## Not changed
 
 - API routes and their response shapes (aside from the additive
@@ -193,4 +256,9 @@ npm run dev
 # open http://localhost:5173, toggle the theme switch top-right
 # open any project → check Feature Delivery card, grouped RCA/CAPA cards,
 # and the trimmed Bug Leakage Analysis card
+# on All Releases: click the type filter chips (Major/Minor/...)
+# on a release page: check the locked/live toggle under the score ring,
+# and the Score Evolution timeline further down the page
+# on the New Release form: set an issue's Status to "closed" and confirm
+# the Completed Date field appears
 ```

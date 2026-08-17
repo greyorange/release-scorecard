@@ -61,3 +61,36 @@ Maps user feedback items (1–15) to current implementation state and planned mo
 3. **UI Fallback**: If injection data unavailable, use current logic (discovery-based).
 4. **Snapshot Automation**: Cron job or on-access lazy calculation to populate score snapshots.
 5. **Bug Attribution**: Requires JIRA + Git metadata; graceful degradation if unavailable.
+
+---
+
+## Verified Implementation Status (2026-08-17)
+
+The table above documents what was *planned*. This section documents what
+was actually checked against the running code — several items marked
+"Complete" in `IMPLEMENTATION_COMPLETE.md` turned out to be built but never
+wired into a route or page (dead code that silently did nothing). Status
+below reflects the real, verified state, branch `Relase_Scorecard_Shivang`,
+commit `b3e1f4b` — **none of this is in `main` yet**.
+
+| # | Feedback point | Status | Fixed in (commit) | Notes / real gap |
+|---|---|---|---|---|
+| 1 | Define "quality of release" | ✅ Done | `main` (`6122169`) | `qualityDimensions` in `server/scorecard.js` |
+| 2 | SOP & timeline checklist | ✅ Done | `main` (`6122169`) | `SopCompliance.jsx` |
+| 3 | Bug leakage per stage | ✅ Done | `main` (`6122169`); UI trimmed in `54786ce` | Aggregate leakage % + badge only — no per-bug "which stage let it through" list |
+| 4 | Feature delivery vs. plan | ✅ Done | `54786ce` | `FeatureDelivery.jsx` — was in the schema/form but nothing rendered it before |
+| 5 | RCA/CAPA sharing + owner/due-date + CAPA completion tracking + bulk export | 🟡 Partial | `b3e1f4b` | Added `status` (open/in-progress/closed) + `completedDate` end-to-end, and a client-side CSV export button. Missing: an audit trail (who changed status/when — needs a new change-log store) and a true cross-project bulk export (current export is per-release, client-side only) |
+| 6 | Bucket releases by type | ✅ Done | `b3e1f4b` | Filter chips (major/minor/hotfix/patch/weekly) on All Releases, with live counts |
+| 7 | Hierarchical releases (major → weeklies) | ❌ Not wired | — | `server/releaseHierarchy.js` + `ReleaseHierarchy.jsx` exist but are never imported by any route or page; the form has no way to set `parentReleaseId` either |
+| 8 | Score locked at calc time + versioned | 🟡 Mostly done | `b3e1f4b` | Score locks once the 7-day observation window closes, persisted independent of later JIRA syncs, with a live/locked toggle in the UI. "Versioned" in the original sense (per-release scoring-algorithm history) isn't implemented — only a global v1/v2/v3 switch exists in `rollbackControl.js` |
+| 9 | Reweight toward leakage/timeline/features | ✅ Addressed | `main` (`6122169`) | Final split (SOP 25/Product Quality 40/Features 20/Automation 15) differs from this doc's original sketch but addresses the same intent |
+| 10 | Bug injection-vs-discovery attribution | ❌ Not wired | — | `server/bugAttribution.js` + `BugAttribution.jsx` exist but are never imported by any route or page |
+| 11 | Correct cross-release attribution | ❌ Not wired | — | Same module as #10; would need JIRA + git commit metadata to do properly |
+| 12 | Score calculated at a fixed point, not open-ended | ✅ Done | `b3e1f4b` | `finalizeScore()` (already written in `phase2-scorecard.js`) is now actually called |
+| 13 | T+7d scoring window | ✅ Done | `b3e1f4b` | Same mechanism as #12 |
+| 14 | Score snapshots at 24h/72h/1w/2w | ✅ Done | `b3e1f4b` | Real snapshots persisted as each mark passes; `ScoreEvolution.jsx` now rendered on the release page (previously built but never imported). Limitation: a release whose marks already elapsed before this shipped gets all 4 captured at once with identical, up-to-date (not historical) values — flagged explicitly in the UI |
+| 15 | Independent Automation/Health/Compliance/Features tabs | ✅ Done | `54786ce` | `calculateAspectScores()` existed but `server/index.js` never called it — the tabs were rendering with empty data on `main` |
+
+**Tally: 10 of 15 fully done, 2 partial (5, 8), 3 still disconnected (7, 10, 11).**
+All of the above lives only on `Relase_Scorecard_Shivang` — pushed to
+`origin/Relase_Scorecard_Shivang`, not merged into `main`.
